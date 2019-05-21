@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.IO;
 using PMCommunication;
+using System.Text;
 
 namespace PMServer
 {
@@ -19,6 +20,7 @@ namespace PMServer
 
     class Host
     {
+        const string SAVE_FILE_NAME = "multiplayerSave";
         const string PLAYER_LIST_FILE_NAME = "playerList.txt";
         //the string is players name(visible to others) and the int is for login code(not visible, but not encrypted while transmitting it in any way either)
         //ideally, a player should be able to stay oblivious about his own login code, but it should also be possible to check or change in-game via cities skylines mod options
@@ -27,34 +29,12 @@ namespace PMServer
         }
         public void handleConnections()
         {
-
-            Message message1 = new Message("perkele", "1234", "asdf");
-
-            var asByteArray = message1.messageAsByteArray();
-            Console.WriteLine("DANGERZONE");
-            for(int i = 0; i < asByteArray.Length; i++)
-            {
-                Console.Write(asByteArray[i]);
-            }
-            Console.WriteLine("\nDANGERZONE END");
-            Console.WriteLine("asdasdasd");
-            Console.WriteLine(asByteArray);
-            var message2 = new Message();
-            Console.WriteLine("kekekekke");
-            message2.parseFromString(asByteArray);
-
-            Console.WriteLine(message2.name + " - " + message2.code + " - " + message2.message);
-
             Console.WriteLine("Opening the connections!");
-            //shamelessly copy-pasted from https://stackoverflow.com/questions/8655980/how-to-receive-a-file-over-tcp-which-was-sent-using-socket-filesend-method
-            //it seemed to work all right so if it ain't broken don't change it :s
             TcpListener listener = new TcpListener(Message.PORT);
             listener.Start();
             while (true)
             {
-                //listener.AcceptTCPClient()
                 using (var client = listener.AcceptSocket())
-                //using (var stream = client.GetStream())
                 {
                     Console.WriteLine("Client connected. Reading the client's request!");
                     byte[] messageBuffer = new byte[1024];
@@ -76,14 +56,14 @@ namespace PMServer
                     {
                         //apparently 'using' will cause the connection to be closed anyways.
                         //client.Close();
-                        Console.WriteLine("Invalid operation was requested by the server. Connection with client was closed.");
+                        Console.WriteLine("Invalid operation was requested by the server. Connection with client is closed.");
                     }
                     else if (reply[0] == (byte)Responses.ReceivingSave)
                     {
-                        using (var output = File.Create(PMCommunication.HostConfigData.saveFileName))
+                        using (var output = File.Create(SAVE_FILE_NAME))
                         {
                             // read the file in chunks of 1KB
-                            var buffer = new byte[1024];
+                            byte[] buffer = new byte[1024];
                             int bytesRead;
                             while ((bytesRead = client.Receive(buffer)) > 0)
                             {
@@ -94,11 +74,11 @@ namespace PMServer
                     }
                     else if (reply[0] == (byte)Responses.SendingSave)
                     {
-                        client.SendFile(PMCommunication.HostConfigData.saveFileName);
+                        client.SendFile(SAVE_FILE_NAME);
                     }
                     else
                     {
-                        Console.WriteLine("Sending a reply.");
+                        Console.WriteLine("Sending a reply: ", reply, "\n");
                         //stream.Write(reply, 0, reply.Length);
                         client.Send(reply, reply.Length, SocketFlags.None);
                         Console.WriteLine("The client received the reply successfully.");
@@ -110,7 +90,6 @@ namespace PMServer
         byte[] reactToMessage(Message message)
         {
             var response = new byte[1];
-            Console.WriteLine("Message! name: " + message.name + ", code: " + message.code + ", message: " + message.message + ".");
             List<Player> players = peekPlayers();
             if (message.message == "join")
             {
@@ -168,15 +147,21 @@ namespace PMServer
                     }
                     else if (message.message == "serverdata")
                     {
-
-                        var dataResponse = new byte[18+System.Text.UTF8Encoding.Unicode.GetByteCount(HostConfigData.saveFileName)];
-                        dataResponse[0] = response[0];
+                        Console.WriteLine("playerTurn: " + HostConfigData.playerTurn + " turn: " + HostConfigData.turn + " cycleDuration " + HostConfigData.cycleDuration + " turnDuration " + HostConfigData.turnDuration
+                            + " playerTurnName: " + HostConfigData.playerTurnName);
+                        var playerTurnNameByteLength = (byte)System.Text.UTF8Encoding.UTF8.GetByteCount(PMCommunication.HostConfigData.playerTurnName);
+                        var dataResponse = new byte[18+playerTurnNameByteLength];
+                        dataResponse[0] = (byte)Responses.SendingData;
                         Array.Copy(BitConverter.GetBytes(HostConfigData.playerTurn), 0, dataResponse, 1, 4);
+                        Console.WriteLine("foo");
                         Array.Copy(BitConverter.GetBytes(HostConfigData.turn), 0, dataResponse, 5, 4);
+                        Console.WriteLine("bar");
                         Array.Copy(BitConverter.GetBytes(HostConfigData.cycleDuration), 0, dataResponse, 9, 4);
+                        Console.WriteLine("kissa");
                         Array.Copy(BitConverter.GetBytes(HostConfigData.turnDuration), 0, dataResponse, 13, 4);
-                        dataResponse[17] = (byte)System.Text.ASCIIEncoding.Unicode.GetByteCount(HostConfigData.saveFileName);
-                        Array.Copy(System.Text.Encoding.UTF8.GetBytes(HostConfigData.saveFileName), 0, dataResponse, 18, System.Text.Encoding.Unicode.GetByteCount(HostConfigData.saveFileName));
+                        dataResponse[17] = playerTurnNameByteLength;
+                        Array.Copy(Encoding.UTF8.GetBytes(HostConfigData.playerTurnName), 0, dataResponse, 18, playerTurnNameByteLength);
+                        Console.WriteLine("koira");
                         return dataResponse;
                     }
                 }
@@ -186,7 +171,7 @@ namespace PMServer
         }
         public void skipPlayerTurn()
         {
-
+            throw new NotImplementedException();
         }
         private void nextTurn()
         {
@@ -197,6 +182,8 @@ namespace PMServer
             {
                 PMCommunication.HostConfigData.playerTurn = 0;
             }
+            PMCommunication.HostConfigData.playerTurnName = players[(int)PMCommunication.HostConfigData.playerTurn].name;
+            PMCommunication.HostConfigData.saveData();
         }
         private List<Player> peekPlayers()
         {
@@ -223,6 +210,20 @@ namespace PMServer
             };
             File.AppendAllLines("playerList.txt", playerData);
         }
+
+        public void initialize()
+        {
+            if (!File.Exists(HostConfigData.HOST_CONFIG_FILE_NAME))
+            {
+                Console.WriteLine("existing config file not found: creating a new one");
+                HostConfigData.saveDefaultData();
+            }
+            else
+            {
+                Console.WriteLine("found an existing config file");
+            }
+            HostConfigData.loadData();
+        }
     }
 
     class Program
@@ -230,6 +231,7 @@ namespace PMServer
         static void Main(string[] args)
         {
             var server = new Host();
+            server.initialize();
             server.handleConnections();
         }
     }

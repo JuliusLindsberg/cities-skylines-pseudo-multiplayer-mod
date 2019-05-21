@@ -34,20 +34,27 @@ namespace PM
         {
             if (File.Exists(TURN_DATA_FILE_NAME))
             {
-                string[] dataAsList = File.ReadAllLines(TURN_DATA_FILE_NAME, Encoding.UTF32);
+                DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "HIPS");
+                string[] dataAsList = File.ReadAllLines(TURN_DATA_FILE_NAME, Encoding.UTF8);
+                if(dataAsList.Length != 2)
+                {
+                    DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "loadTurnData(): wrong amount of lines in a turnData file (" + dataAsList.Length + "). Nullifying said file.");
+                    nullifyTurnData();
+                }
                 tick = Convert.ToUInt32(dataAsList[0]);
                 cycle = Convert.ToUInt32(dataAsList[1]);
+                DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "HOPS");
             }
             else
             {
-                tick = 0;
-                cycle = 0;
                 nullifyTurnData();
+                DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "WARNING: loadTurnData() was called while the file did not exist!\n");
             }
         }
     }
     public static class ClientData
     {
+        public const string SAVE_FILE_NAME = "multiplayersave";
         const string USER_DATA_FILE_NAME = "userData.txt";
         public static void saveData()
         {
@@ -69,7 +76,7 @@ namespace PM
         {
             if (File.Exists(USER_DATA_FILE_NAME))
             {
-                DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "FILE EXISTS!");
+                DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "in loadData(): FILE EXISTS!");
                 var dataAsList = File.ReadAllLines(USER_DATA_FILE_NAME, Encoding.UTF8);
                 name = dataAsList[0];
                 code = dataAsList[1];
@@ -77,7 +84,7 @@ namespace PM
             }
             else
             {
-                DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "CREATING NEW FILE!");
+                DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "in loadData(): CREATING NEW FILE!");
                 System.Random rnd = new System.Random();
                 
                 name = Convert.ToString(rnd.Next(0, 9999));
@@ -97,7 +104,7 @@ namespace PM
 
         public string Description
         {
-            get { return "This mod aims to make a kind of multiplayer experience of cities skylines with players taking turns on city management with the help of a configurable dedicated server."; }
+            get { return "This mod aims to make a kind of multiplayer experience of cities skylines with players taking turns on city management with the help of a dedicated server."; }
         }
         public void OnSettingsUI(UIHelperBase helper)
         {
@@ -108,7 +115,7 @@ namespace PM
             }
             UIHelperBase group = helper.AddGroup("Pseudo_Multiplayer_group");
             ClientData.loadData();
-            DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "ClientData Loaded! name: " + ClientData.name + ", code: " + ClientData.code + ", ip: " + ClientData.hostIP + "!");
+            //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "ClientData Loaded! name: " + ClientData.name + ", code: " + ClientData.code + ", ip: " + ClientData.hostIP + "!");
             group.AddTextfield("Host ip address", ClientData.hostIP, (value) => updateClientDataFromUI(value, "ip"));
             group.AddTextfield("Username", ClientData.name, (value) => updateClientDataFromUI(value, "name"));
             group.AddTextfield("User code (not encrypted, don't use the same code anywhere else!!!)", ClientData.code, (value) => updateClientDataFromUI(value, "code"));
@@ -204,10 +211,29 @@ namespace PM
         public override void OnLevelLoaded(LoadMode mode)
         {
             DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "OnLevelLoaded()");
-            DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "Reading User Data");
-            PM.TurnData.loadTurnData();
+            DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "Reading User Data x");
+            /*if (managers.loading.currentMode != ICities.AppMode.Game)
+            {
+                DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "App mode was not Game: PM therefore will not be active on the save"); 
+                PMThreading.PMActiveOnSave = false;
+            }*/
+            DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "ASDASDASDx");
+            TurnData.loadTurnData();
             ClientData.loadData();
+            DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "OnLevelLoaded(): fetching remote data");
             HostConfigData.fetchRemoteData(ClientData.name, ClientData.code, ClientData.hostIP);
+            DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "OnLevelLoaded(): remote data fetched");
+            if(HostConfigData.playerTurnName == ClientData.name || HostConfigData.turn == 0)
+            {
+                DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "PMActive = true");
+                PMThreading.PMActive = true;
+            }
+            else
+            {
+                DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "PMActive = false");
+                PMThreading.PMActive = false;
+            }
+            // 0 here is for game
             /*if game loaded(not for example an editor)
             if (mode == LoadMode.LoadGame)
             {
@@ -218,14 +244,14 @@ namespace PM
             //GameObject PMTracker = new GameObject("PMGameTracker");
             if (TurnData.cycle >= HostConfigData.turnDuration)
             {
-                sendSaveDataToServer(IPAddress.Loopback, "C:\\Users/Mooncat/AppData/Local/Colossal Order/Cities_Skylines/Saves/" + HostConfigData.saveFileName, 2556);
+                sendSaveDataToServer(IPAddress.Loopback, "C:\\Users/Mooncat/AppData/Local/Colossal Order/Cities_Skylines/Saves/" + ClientData.SAVE_FILE_NAME, 2556);
                 //UIView view = UIView.GetAView();
                 DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "Save data sent to server, turn has ended for this client!");
                 //managers.serializableData.LoadGame("whatwillhappennow");
             }
 
         }
-        //send essential data to server in this funtion(statistics collected and the most current saveGame)
+        //send essential data to server in this funtion(the most current saveGame and maybe in future some statistics collected)
         public bool sendSaveDataToServer(IPAddress IP, string pathAndFileName, int port = 2556)
         {
             DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "SendDataToServer()");
@@ -243,15 +269,15 @@ namespace PM
 
 
                 //for now lets just hope this conversion won't cause problems... it shouldn't really as name lengths nor code lengths beyond 100 are not supported anyways...
-                /*byte nameLength = (byte)System.Text.ASCIIEncoding.Unicode.GetByteCount(PM.ClientData.name);
-                byte codeLength = (byte)System.Text.ASCIIEncoding.Unicode.GetByteCount(PM.ClientData.code);
-                byte messageLength = (byte)System.Text.ASCIIEncoding.Unicode.GetByteCount("r");
-                var message = new byte[nameLength+codeLength+messageLength+3];
+                byte nameLength = (byte)Encoding.Unicode.GetByteCount(ClientData.name);
+                byte codeLength = (byte)Encoding.Unicode.GetByteCount(ClientData.code);
+                byte messageLength = (byte)Encoding.Unicode.GetByteCount("r");
+                byte[] message = new byte[nameLength+codeLength+messageLength+3];
                 message[0] = codeLength;
                 message[1] = nameLength;
                 message[2] = messageLength;
                 var temp = PM.ClientData.name + PM.ClientData.code;
-                Array.Copy(Encoding.ASCII.GetBytes(PM.ClientData.code + PM.ClientData.name +"r"), 0, message, 3, (PM.ClientData.code.Length+ PM.ClientData.name.Length+1));*/
+                Array.Copy(Encoding.ASCII.GetBytes(PM.ClientData.code + PM.ClientData.name +"r"), 0, message, 3, (PM.ClientData.code.Length+ PM.ClientData.name.Length+1));
                 var a = PM.ClientData.name;
                 var b = PM.ClientData.code;
 
@@ -279,25 +305,34 @@ namespace PM
 
     public class PMThreading : ICities.ThreadingExtensionBase
     {
+        public static bool PMActive = false;
         public override void OnCreated(IThreading threading)
         {
 
         }
-
-        public override void OnUpdate(float realTimeDelta, float simulationTimeDelta)
+        public override void OnAfterSimulationFrame()
         {
+            if (!PMActive)
+            {
+                return;
+            }
             TurnData.tick++;
-            if(TurnData.tick >= PMCommunication.HostConfigData.cycleDuration)
+            if (TurnData.tick >= PMCommunication.HostConfigData.cycleDuration)
             {
                 TurnData.tick = 0;
                 TurnData.cycle++;
+                
             }
-            if(TurnData.cycle >= HostConfigData.turnDuration) {
+            if (TurnData.cycle >= HostConfigData.turnDuration)
+            {
                 DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "This clients turn has ended. Data is being sent to server!");
-                managers.serializableData.SaveGame(HostConfigData.saveFileName);
+                //saving the game does not seem to work in this context. Will investigate later on...
+                managers.serializableData.SaveGame(ClientData.SAVE_FILE_NAME);
+
                 DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "Save successful, nullifying turn data");
+                //Here a confirmation should be made that the save has also been successfully sent to the server before nullifying turnData
                 TurnData.nullifyTurnData();
-                managers.threading.simulationPaused = true;
+                PMActive = false;
                 DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "Turn data nullified and simulation paused!");
             }
         }

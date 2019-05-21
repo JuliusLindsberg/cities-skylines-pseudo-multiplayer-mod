@@ -21,25 +21,25 @@ namespace PMCommunication
     //all data saved in HostData is passed to a client from the server when requested
     public static class HostConfigData
     {
-        public const string HOST_CONFIG_FILE_NAME = "hostConfigData.txt";
-        public static string saveFileName { get; set; }
+        public const string HOST_CONFIG_FILE_NAME = "hostData.txt";
         public static uint playerTurn { get; set; }
+        public static string playerTurnName { get; set; }
         public static uint turn { get; set; }
         //The aim is to give at least roughly the same amount of simulation ticks for each player every turn.
         //A cycleDuration amount of simulation ticks makes up a cycle(decided by host)
         //cycle amount determines turn length, which is expressed in variable turnLength
         public static uint cycleDuration { get; set; }
         public static uint turnDuration { get; set; }
-        public static void loadDataFromFile()
+        public static void loadData()
         {
             string[] data = File.ReadAllLines(HOST_CONFIG_FILE_NAME);
             playerTurn = Convert.ToUInt32(data[0]);
             turn = Convert.ToUInt32(data[1]);
             cycleDuration = Convert.ToUInt32(data[2]);
             turnDuration = Convert.ToUInt32(data[3]);
-            saveFileName = data[4];
+            playerTurnName = data[4];
         }
-        public static void saveDataIntoFile()
+        public static void saveData()
         {
             string[] data = new string[]
             {
@@ -47,7 +47,19 @@ namespace PMCommunication
                 turn.ToString(),
                 cycleDuration.ToString(),
                 turnDuration.ToString(),
-                saveFileName
+                playerTurnName
+            };
+            File.WriteAllLines(HOST_CONFIG_FILE_NAME, data);
+        }
+        public static void saveDefaultData()
+        {
+            string[] data = new string[]
+            {
+                "0",    // default player turn
+                "0",    // default turn number
+                "500",  // default cycle duration
+                "100",  // default turn Duration
+                "First turn"
             };
             File.WriteAllLines(HOST_CONFIG_FILE_NAME, data);
         }
@@ -66,7 +78,8 @@ namespace PMCommunication
             turn = BitConverter.ToUInt32(buffer, 5);
             cycleDuration = BitConverter.ToUInt32(buffer, 9);
             turnDuration = BitConverter.ToUInt32(buffer, 13);
-            saveFileName = BitConverter.ToString(buffer, 19, buffer[18]);
+            byte playerTurnNameByteLength = buffer[17];
+            playerTurnName = Encoding.UTF8.GetString(buffer, 18, (int)playerTurnNameByteLength);
         }
     }
 
