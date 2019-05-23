@@ -18,6 +18,13 @@ namespace PMCommunication
         WrongCode,
         SendingData
     }
+    public static class MessageStrings
+    {
+        public const string joinGame = "join";
+        public const string saveToHost = "save";
+        public const string saveToClient = "fetchsave";
+        public const string serverDataRequest = "serverdata";
+    }
     //all data saved in HostData is passed to a client from the server when requested
     public static class HostConfigData
     {

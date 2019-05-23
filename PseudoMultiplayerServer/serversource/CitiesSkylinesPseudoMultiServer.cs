@@ -62,6 +62,7 @@ namespace PMServer
                     {
                         using (var output = File.Create(SAVE_FILE_NAME))
                         {
+                            Console.WriteLine("A");
                             // read the file in chunks of 1KB
                             byte[] buffer = new byte[1024];
                             int bytesRead;
@@ -70,7 +71,7 @@ namespace PMServer
                                 output.Write(buffer, 0, bytesRead);
                             }
                         }
-                        Console.WriteLine("Connection ended successfully!");
+                        Console.WriteLine("Savefile received!");
                     }
                     else if (reply[0] == (byte)Responses.SendingSave)
                     {
@@ -82,7 +83,7 @@ namespace PMServer
                         //stream.Write(reply, 0, reply.Length);
                         client.Send(reply, reply.Length, SocketFlags.None);
                         Console.WriteLine("The client received the reply successfully.");
-                        client.Close();
+                        //client.Close();
                     }
                 }
             }
@@ -91,7 +92,7 @@ namespace PMServer
         {
             var response = new byte[1];
             List<Player> players = peekPlayers();
-            if (message.message == "join")
+            if (message.message == MessageStrings.joinGame)
             {
                 if (PMCommunication.HostConfigData.turn > 0)
                 {
@@ -121,13 +122,13 @@ namespace PMServer
             {
                 if (message.code == players[i].code && message.name == players[i].name)
                 {
-                    if (message.message == "save")
+                    if (message.message == MessageStrings.saveToHost)
                     {
                         Console.WriteLine("message: save, Receiving save");
                         response[0] = (byte)Responses.ReceivingSave;
                         return response;
                     }
-                    else if (message.message == "fetchsave")
+                    else if (message.message == MessageStrings.saveToClient)
                     {
                         if(message.name == players[(int)HostConfigData.playerTurn].name)
                         {
@@ -145,7 +146,7 @@ namespace PMServer
                         }
                         return response;
                     }
-                    else if (message.message == "serverdata")
+                    else if (message.message == MessageStrings.serverDataRequest)
                     {
                         Console.WriteLine("playerTurn: " + HostConfigData.playerTurn + " turn: " + HostConfigData.turn + " cycleDuration " + HostConfigData.cycleDuration + " turnDuration " + HostConfigData.turnDuration
                             + " playerTurnName: " + HostConfigData.playerTurnName);
