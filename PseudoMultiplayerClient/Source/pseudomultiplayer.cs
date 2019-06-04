@@ -1,11 +1,10 @@
 ﻿using System;
 using ICities;
 using System.Net.Sockets;
-using System.Net;
-using ColossalFramework.Plugins;
 using System.IO;
 using System.Text;
 using PMCommunication;
+using System.Timers;
 
 namespace PM
 {
@@ -34,21 +33,19 @@ namespace PM
         {
             if (File.Exists(TURN_DATA_FILE_NAME))
             {
-                DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "HIPS");
                 string[] dataAsList = File.ReadAllLines(TURN_DATA_FILE_NAME, Encoding.UTF8);
                 if(dataAsList.Length != 2)
                 {
-                    DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "loadTurnData(): wrong amount of lines in a turnData file (" + dataAsList.Length + "). Nullifying said file.");
+                    //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "loadTurnData(): wrong amount of lines in a turnData file (" + dataAsList.Length + "). Nullifying said file.");
                     nullifyTurnData();
                 }
                 tick = Convert.ToUInt32(dataAsList[0]);
                 cycle = Convert.ToUInt32(dataAsList[1]);
-                DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "HOPS");
             }
             else
             {
                 nullifyTurnData();
-                DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "WARNING: loadTurnData() was called while the file did not exist!\n");
+                //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "WARNING: loadTurnData() was called while the file did not exist!\n");
             }
         }
     }
@@ -59,7 +56,6 @@ namespace PM
 
         public static void saveData()
         {
-            DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "SAVING DATA!");
             //save turn data into a file. tick first and then cycle
             string[] userData = new string[]
             {
@@ -77,7 +73,6 @@ namespace PM
         {
             if (File.Exists(USER_DATA_FILE_NAME))
             {
-                DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "in loadData(): FILE EXISTS!");
                 var dataAsList = File.ReadAllLines(USER_DATA_FILE_NAME, Encoding.UTF8);
                 name = dataAsList[0];
                 code = dataAsList[1];
@@ -85,7 +80,6 @@ namespace PM
             }
             else
             {
-                DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "in loadData(): CREATING NEW FILE!");
                 System.Random rnd = new System.Random();
                 
                 name = Convert.ToString(rnd.Next(0, 9999));
@@ -123,11 +117,11 @@ namespace PM
             group.AddTextfield("Host ip address", ClientData.hostIP, (value) => updateClientDataFromUI(value, "ip"));
             group.AddTextfield("Username", ClientData.name, (value) => updateClientDataFromUI(value, "name"));
             group.AddTextfield("User code (not encrypted, don't use the same code anywhere else!!!)", ClientData.code, (value) => updateClientDataFromUI(value, "code"));
-            group.AddButton("Attempt join: " + connectionStatus, () => attemptJoinServer(group));
+            group.AddButton("Attempt join: " + connectionStatus, () => attemptToJoinServer(group));
         }
         public void updateClientDataFromUI(string value, string identifier)
         {
-            DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "updateClientDataFromUI()!");
+            //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "updateClientDataFromUI()!");
             if( identifier == "ip" )
             {
                 ClientData.hostIP = value;
@@ -142,105 +136,67 @@ namespace PM
             }
             else
             {
-                DebugOutputPanel.AddMessage(PluginManager.MessageType.Error, "bad identifier(" + identifier + ")inserted into function updateClientFromUI()!");
+                //DebugOutputPanel.AddMessage(PluginManager.MessageType.Error, "bad identifier(" + identifier + ")inserted into function updateClientFromUI()!");
             }
             ClientData.saveData();
         }
-        public void attemptJoinServer(UIHelperBase group)
+        public void attemptToJoinServer(UIHelperBase group)
         {
-            try
-            {
-                Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                socket.Connect(ClientData.hostIP, Message.PORT);
-                byte[] message = new Message(ClientData.name, ClientData.code, MessageStrings.joinGame).messageAsByteArray();
-                socket.Send(message);
+            Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            socket.Connect(ClientData.hostIP, Message.PORT);
+            byte[] message = new Message(ClientData.name, ClientData.code, MessageStrings.joinGame).messageAsByteArray();
+            socket.Send(message);
 
-                byte[] buffer = new byte[1];
-                socket.Receive(buffer);
-                if(buffer[0] == (byte)Responses.JoinAccepted)
-                {
-                    DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "join accepted!");
-                    ClientData.connectedToHost = true;
-                    group.AddTextfield("Connection Status:", "ACCEPTED!", (value) => doNothing());
-                }
-                else
-                {
-                    DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "join refused!");
-                    ClientData.connectedToHost = false;
-                }
-            }
-            catch
+            byte[] buffer = new byte[1];
+            socket.Receive(buffer);
+            if(buffer[0] == (byte)Responses.JoinAccepted)
             {
-                DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "failed connection!");
+                //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "join accepted!");
+                ClientData.connectedToHost = true;
+                group.AddTextfield("Connection Status:", "ACCEPTED!", (value) => doNothing());
+            }
+            else
+            {
+                //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "join refused!");
                 ClientData.connectedToHost = false;
             }
         }
         //send essential data to server in this funtion(the most current saveGame and maybe in future some statistics collected)
-        public static bool sendSaveDataToServer(string pathAndFileName, int port = 2556)
+        public static void sendSaveToServer(Object source, ElapsedEventArgs eventArgs)
         {
-            
-            if(!File.Exists(pathAndFileName))
+            string pathAndFileName = "C:\\Users\\Mooncat\\AppData\\Local\\Colossal Order\\Cities_Skylines\\Saves\\" + ClientData.SAVE_FILE_NAME+ "_sent.crp";
+            if (!File.Exists(pathAndFileName))
             {
-                DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "File" + pathAndFileName + " does not exist!");
-                return false;
+                //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "File" + pathAndFileName + " does not exist!");
+                return;
             }
-            DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "SendDataToServer()");
-            /*Byte[] addressAsBytes = { 0, 0, 0, 0 };
-            IPAddress ipAddr = new IPAddress(addressAsBytes);
-            IPEndPoint endPoint = new IPEndPoint(IP, port);*/
-            //SocketInformation info = new SocketInformation();
-
+            //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "SendDataToServer()");
             var clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            //try
-            //{
-                DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "A");
-                clientSocket.Connect(ClientData.hostIP, Message.PORT);
-                //clientSocket.Connect(endPoint);
-                PM.ClientData.loadData();
-                DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "B");
-
-
-                //for now lets just hope this conversion won't cause problems... it shouldn't really as long name or code lengths aren't going to be supported anyhow
-                byte nameLength = (byte)Encoding.UTF8.GetByteCount(ClientData.name);
-                byte codeLength = (byte)Encoding.UTF8.GetByteCount(ClientData.code);
-                byte messageLength = (byte)Encoding.UTF8.GetByteCount(MessageStrings.saveToHost);
-                byte[] message = new byte[nameLength + codeLength + messageLength + 3];
-                //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "C");
-                message[0] = codeLength;
-                message[1] = nameLength;
-                message[2] = messageLength;
-                //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "D");
-                Array.Copy(Encoding.UTF8.GetBytes(ClientData.code + ClientData.name + MessageStrings.saveToHost), 0, message, 3, ClientData.code.Length + ClientData.name.Length + 1);
-
-                clientSocket.Send(new Message(ClientData.name, ClientData.code, MessageStrings.saveToHost).messageAsByteArray());
-                //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "E");
-                //byte[] serverReply = new byte[1000];
-                //serverReply[0] = (byte)Responses.ReceivingSave;
-                //clientSocket.Receive(serverReply);
-                /*if (serverReply[0] != (int)Responses.ReceivingSave)
-                {
-                    DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "request to send the save file was denied by host");
-                    return false;
-                }
-                else
-                {*/
-                    //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "save send request is accepted");
-                //}
-                //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "F");
-                clientSocket.SendFile(pathAndFileName);
-                clientSocket.Close();
-                DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "Save file sent now");
-            //}
-            /*catch (Exception e)
+            clientSocket.Connect(ClientData.hostIP, Message.PORT);
+            ClientData.loadData();
+            clientSocket.Send(new Message(ClientData.name, ClientData.code, MessageStrings.saveToHost).messageAsByteArray());
+            clientSocket.SendFile(pathAndFileName);
+            clientSocket.Close();
+            //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "Save file sent now");
+            TurnData.nullifyTurnData();
+            return;
+        }
+        public static void receiveSaveFromServer()
+        {
+            var clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            clientSocket.Connect(ClientData.hostIP, Message.PORT);
+            var message = new PMCommunication.Message(ClientData.name, ClientData.code, PMCommunication.MessageStrings.saveToClient);
+            clientSocket.Send(message.messageAsByteArray());
+            using (FileStream output = File.Create("C:\\Users\\Mooncat\\AppData\\Local\\Colossal Order\\Cities_Skylines\\Saves\\" + ClientData.SAVE_FILE_NAME+"_received.crp"))
             {
-                DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "Pseudomultiplayer mod was unable to contact the client! You may try to connect server by loading the save again.\n (" + e.ToString() + ")");
-                return false;
-            }*/
-            //clientSocket.Shutdown(SocketShutdown.Both);
-            //clientSocket.Close();
-            //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "SendDataToServer() END");
-            //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "save file was sent to host successfully");
-            return true;
+                // read the file in chunks of 1KB
+                byte[] buffer = new byte[1024];
+                int bytesRead;
+                while ((bytesRead = clientSocket.Receive(buffer)) > 0)
+                {
+                    output.Write(buffer, 0, bytesRead);
+                }
+            }
         }
         public void doNothing()
         {
@@ -249,9 +205,11 @@ namespace PM
     }
     public class PMSerializationManager : SerializableDataExtensionBase
     {
+        static public bool multiplayerTurnEndSave;
         ISerializableData managerObject;
         public override void OnCreated(ISerializableData serializedData)
         {
+            multiplayerTurnEndSave = false;
             managerObject = serializedData;
             PM.PseudoMultiplayer.PMSerializingManager = serializedData;
         }
@@ -268,34 +226,56 @@ namespace PM
 
         public override void OnSaveData()
         {
-            DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "saving turn data!");
-            PM.TurnData.saveTurnData();
-
+            if (PMThreading.PMActive || multiplayerTurnEndSave)
+            {
+                PM.TurnData.saveTurnData();
+            }
+            //OnSaveData() is called after the vanilla game has saved. Therefore it is the best place to put this timer that waits for 5 seconds and then tries to send the save to server
+            if (multiplayerTurnEndSave)
+            {
+                var saveTimer = new System.Timers.Timer(15000);
+                saveTimer.Elapsed += PseudoMultiplayer.sendSaveToServer;
+                saveTimer.AutoReset = false;
+                saveTimer.Start();
+                multiplayerTurnEndSave = false;
+            }
+            
         }
     }
     public class PMLoader : LoadingExtensionBase
     {
         public override void OnCreated(ILoading loading)
         {
-            //asks the dedicated server about who's turn is it right now
-
+            //asks the server about who's turn is it right now
+            ClientData.loadData();
+            if (ClientData.hostIP != "0.0.0.0") {
+                HostConfigData.fetchRemoteData(ClientData.name, ClientData.code, ClientData.hostIP);
+                if(HostConfigData.playerTurnName == ClientData.name)
+                {
+                    
+                }
+            }
         }
         public override void OnLevelLoaded(LoadMode mode)
         {
-            DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "OnLevelLoaded()");
+            //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "OnLevelLoaded()");
             TurnData.loadTurnData();
             ClientData.loadData();
-            DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "OnLevelLoaded(): fetching remote data");
+            //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, ClientData.hostIP + "turnDuration: " + HostConfigData.turnDuration + " turn: " +HostConfigData.turn + " player name: " + HostConfigData.playerTurnName );
+            if(ClientData.hostIP == "0.0.0.0")
+            {
+                PMThreading.PMActive = false;
+                return;
+            }
             HostConfigData.fetchRemoteData(ClientData.name, ClientData.code, ClientData.hostIP);
-            DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "OnLevelLoaded(): remote data fetched");
             if(HostConfigData.playerTurnName == ClientData.name || HostConfigData.turn == 0)
             {
-                DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "PMActive == true");
+                //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "PMActive == true");
                 PMThreading.PMActive = true;
             }
             else
             {
-                DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "PMActive == false");
+                //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "PMActive == false");
                 PMThreading.PMActive = false;
             }
 
@@ -326,47 +306,12 @@ namespace PM
             }
             if (TurnData.cycle >= HostConfigData.turnDuration)
             {
-                DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "This clients turn has ended. Data is being sent to server!");
-                //saving the game does not seem to work in this context. Will investigate later on...
-                try
-                {
-                    PseudoMultiplayer.PMSerializingManager.SaveGame(ClientData.SAVE_FILE_NAME);
-                }
-                catch(Exception e)
-                {
-                    DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, e.ToString());
-                    PMActive = false;
-                    return;
-                }
-                try
-                {
-                    //NOTE: THIS FUNCTION CALL IS HERE FOR DEBUGGING PURPOSES ONLY!
-                    TurnData.nullifyTurnData();
-                    //NOTE: THIS ASSIGNMENT OPERATION IS HERE FOR DEBUGGING PURPOSES ONLY!
-                    PMActive = false;
-                    ///NOTE TO SELF: CLEAR THIS MESS OVER HERE NEXT TIME!
-                    ///also add a timer from unityengine (WaitForSeconds()?) here so the game will be able to actually save the game before sending over the save to the server.
-                    ///Since SaveGame() appears not to be blocking I am unaware of a better way to implement this yet.
-                    if (!PseudoMultiplayer.sendSaveDataToServer("C:\\Users\\Mooncat\\AppData\\Local\\Colossal Order\\Cities_Skylines\\Saves\\" + ClientData.SAVE_FILE_NAME+".crp"))
-                    {
-                        PMActive = false;
-                        //NOTE: THIS FUNCTION CALL IS HERE FOR DEBUGGING PURPOSES ONLY!
-                        TurnData.nullifyTurnData();
-                        return;
-                    }
-                }
-                catch (Exception e)
-                {
-                    DebugOutputPanel.AddMessage(PluginManager.MessageType.Error, "Error: was host's IP inserted by user sensible?\n" + e.ToString());
-                    PMActive = false;
-                    return;
-                }
-
-                DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "Save successful, nullifying turn data");
-                //Here a confirmation should be made that the save has also been successfully sent to the server before nullifying turnData
-                TurnData.nullifyTurnData();
+                //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "This clients turn has ended.");
+                PM.PMSerializationManager.multiplayerTurnEndSave = true;
+                PseudoMultiplayer.PMSerializingManager.SaveGame(ClientData.SAVE_FILE_NAME+"_sent");
                 PMActive = false;
             }
+            
         }
     }
 

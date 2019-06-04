@@ -16,7 +16,8 @@ namespace PMCommunication
         NameTaken,
         WrongPlayer,
         WrongCode,
-        SendingData
+        SendingData,
+        NotUnderstood
     }
     public static class MessageStrings
     {
