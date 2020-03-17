@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PM;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Sockets;
@@ -17,7 +18,8 @@ namespace PMCommunication
         WrongPlayer,
         WrongCode,
         SendingData,
-        NotUnderstood
+        NotUnderstood,
+        AlreadyJoined
     }
     public static class MessageStrings
     {
@@ -75,10 +77,8 @@ namespace PMCommunication
         {
             var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             socket.Connect(ip, Message.PORT);
-            //ClientData.loadData();
 
             var message = new PMCommunication.Message(name, code, "serverdata");
-
             socket.Send(message.messageAsByteArray());
             var buffer = new byte[1024];
             socket.Receive(buffer);

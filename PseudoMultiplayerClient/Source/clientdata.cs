@@ -17,7 +17,8 @@ namespace PM {
                     name,
                     code,
                     hostIP,
-                    savePath
+                    savePath,
+                    Convert.ToString(connectedToHost)
             };
             File.WriteAllLines(USER_DATA_FILE_NAME, userData);
         }
@@ -35,6 +36,7 @@ namespace PM {
                 code = dataAsList[1];
                 hostIP = dataAsList[2];
                 savePath = dataAsList[3];
+                connectedToHost = Convert.ToBoolean(dataAsList[4]);
             }
             else
             {

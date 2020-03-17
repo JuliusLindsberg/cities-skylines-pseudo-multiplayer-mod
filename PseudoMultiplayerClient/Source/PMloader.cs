@@ -8,9 +8,22 @@ namespace PM {
         {
             //asks the server about who's turn is it right now
             ClientData.loadData();
+            TurnData.loadTurnData();
             if (ClientData.hostIP != "0.0.0.0")
             {
-                HostConfigData.fetchRemoteData(ClientData.name, ClientData.code, ClientData.hostIP);
+                try
+                {
+                    HostConfigData.fetchRemoteData(ClientData.name, ClientData.code, ClientData.hostIP);
+                    if(HostConfigData.playerTurnName == ClientData.name && !TurnData.saveFetched)
+                    {
+                        PseudoMultiplayer.receiveSaveFromServer();
+                    }
+                }
+                catch
+                {
+                    ClientData.connectedToHost = false;
+                    ClientData.saveData();
+                }
                 if (HostConfigData.playerTurnName == ClientData.name)
                 {
 

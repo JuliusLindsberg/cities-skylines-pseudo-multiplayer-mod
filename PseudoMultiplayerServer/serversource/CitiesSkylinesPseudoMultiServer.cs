@@ -55,8 +55,6 @@ namespace PMServer
                     //might want to send error messages as replies in the future. I'll need to look into what the default behaviour for closed connections looks like in-game.
                     if(reply[0] == (byte)Responses.ConnectionRejected)
                     {
-                        //apparently 'using' will cause the connection to be closed anyways.
-                        //client.Close();
                         Console.WriteLine("Invalid operation was requested by the client. Connection with client is closed.");
                     }
                     else if (reply[0] == (byte)Responses.ReceivingSave)
@@ -103,7 +101,14 @@ namespace PMServer
                 {
                     if (players[i].name == message.name)
                     {
-                        response[0] = (byte)Responses.NameTaken;
+                        if (players[i].code != message.code)
+                        {
+                            response[0] = (byte)Responses.NameTaken;
+                        }
+                        else
+                        {
+                            response[0] = (byte)Responses.AlreadyJoined;
+                        }
                         return response;
                     }
                 }

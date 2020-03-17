@@ -20,14 +20,14 @@ namespace PM
 
         public string Description
         {
-            get { return "This mod aims to make a kind of multiplayer experience of cities skylines with players taking turns on city management with the help of a dedicated server."; }
+            get { return "This mod aims to make a kind of multiplayer experience of cities skylines with players taking turns on city management with the help of a seperate dedicated server."; }
         }
         public void OnSettingsUI(UIHelperBase helper)
         {
-            string connectionStatus = "(NOT CONNECTED)";
+            string connectionStatus = "(NOT JOINED)";
             if (ClientData.connectedToHost)
             {
-                connectionStatus = "(CONNECTED)";
+                connectionStatus = "(JOINED)";
             }
             UIHelperBase group = helper.AddGroup("Pseudo_Multiplayer_group");
             ClientData.loadData();
@@ -38,6 +38,7 @@ namespace PM
             group.AddTextfield("File path ( the location of your save files. Insert your windows username)",
                 ClientData.savePath, (value) => updateClientDataFromUI(value, "savePath"));
             group.AddButton("Attempt join: " + connectionStatus, () => attemptToJoinServer(group));
+            group.AddButton("Is it my turn now?", () => askTurn(group));
         }
         public void updateClientDataFromUI(string value, string identifier)
         {
@@ -64,6 +65,41 @@ namespace PM
             }
             ClientData.saveData();
         }
+        public void askTurn(UIHelperBase group)
+        {
+            ClientData.loadData();
+            TurnData.loadTurnData();
+            try
+            {
+                HostConfigData.fetchRemoteData(ClientData.name, ClientData.code, ClientData.hostIP);
+            }
+            catch
+            {
+                group.AddTextfield("No Response from server!", "Either connection to host was not established or this client was not recognised", (value) => doNothing());
+                ClientData.connectedToHost = false;
+                ClientData.saveData();
+                return;
+            }
+            if (HostConfigData.playerTurnName == ClientData.name) {
+                if (HostConfigData.playerTurnName == ClientData.name && !TurnData.saveFetched)
+                {
+                    PseudoMultiplayer.receiveSaveFromServer();
+                    group.AddTextfield("Response from server: ", "Yes it is. An up to date save was retrieved from host into save name: " + ClientData.SAVE_FILE_NAME + "_received.crp", (value) => doNothing());
+                }
+                else
+                {
+                    group.AddTextfield("Response from server: ", "Yes it is.", (value) => doNothing());
+                }
+            }
+            else if (HostConfigData.playerTurnName == "First turn")
+            {
+                group.AddTextfield("Response from server:", "As it is the first turn it is up to the players to decide.", (value) => doNothing());
+            }
+            else
+            {
+                group.AddTextfield("Response from server: ", "Nope. It is player " + HostConfigData.playerTurnName + "'s turn.", (value) => doNothing());
+            }
+        }
         public void attemptToJoinServer(UIHelperBase group)
         {
             Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -77,12 +113,24 @@ namespace PM
             {
                 //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "join accepted!");
                 ClientData.connectedToHost = true;
-                group.AddTextfield("Connection Status:", "ACCEPTED!", (value) => doNothing());
+                group.AddTextfield("Join game Status:", "ACCEPTED!", (value) => doNothing());
+            }
+            else if(buffer[0] == (byte)Responses.AlreadyJoined)
+            {
+                group.AddTextfield("Join game Status:", "ALREADY JOINED", (value) => doNothing());
+            }
+            else if(buffer[0] == (byte)Responses.NameTaken)
+            {
+                ClientData.connectedToHost = false;
+                group.AddTextfield("Join game Status:", "Your username in this game is already taken", (value) => doNothing());
+            }
+            else if(buffer[0] == (byte)Responses.JoinRefused)
+            {
+                group.AddTextfield("Join game Status:", "Join refused: is the game already running?", (value) => doNothing());
             }
             else
             {
-                //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "join refused!");
-                ClientData.connectedToHost = false;
+                group.AddTextfield("Join game Status:", "Unknown error", (value) => doNothing());
             }
         }
         //send essential data to server in this funtion(the most current saveGame and maybe in future some statistics collected)
@@ -121,6 +169,11 @@ namespace PM
                     output.Write(buffer, 0, bytesRead);
                 }
             }
+            TurnData.cycle = 0;
+            TurnData.tick = 0;
+            TurnData.saveFetched = true;
+            TurnData.saveTurnData();
+            return;
         }
         public void doNothing()
         {

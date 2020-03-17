@@ -12,16 +12,19 @@ namespace PM {
             string[] turnData = new string[]
             {
                     tick.ToString(),
-                    cycle.ToString()
+                    cycle.ToString(),
+                    saveFetched.ToString()
             };
             File.WriteAllLines(TURN_DATA_FILE_NAME, turnData);
         }
         public static uint cycle { get; set; }
         public static uint tick { get; set; }
+        public static bool saveFetched { get; set; }
         public static void nullifyTurnData()
         {
             tick = 0;
             cycle = 0;
+            saveFetched = false;
             saveTurnData();
         }
         public static void loadTurnData()
@@ -29,13 +32,15 @@ namespace PM {
             if (File.Exists(TURN_DATA_FILE_NAME))
             {
                 string[] dataAsList = File.ReadAllLines(TURN_DATA_FILE_NAME, Encoding.UTF8);
-                if (dataAsList.Length != 2)
+                if (dataAsList.Length != 3)
                 {
                     //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "loadTurnData(): wrong amount of lines in a turnData file (" + dataAsList.Length + "). Nullifying said file.");
                     nullifyTurnData();
+                    return;
                 }
                 tick = Convert.ToUInt32(dataAsList[0]);
                 cycle = Convert.ToUInt32(dataAsList[1]);
+                saveFetched = Convert.ToBoolean(dataAsList[2]);
             }
             else
             {
@@ -44,5 +49,4 @@ namespace PM {
             }
         }
     }
-
 }
