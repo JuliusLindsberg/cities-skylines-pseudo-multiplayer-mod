@@ -136,7 +136,7 @@ namespace PM
         //send essential data to server in this funtion(the most current saveGame and maybe in future some statistics collected)
         public static void sendSaveToServer(Object source, ElapsedEventArgs eventArgs)
         {
-            string pathAndFileName = "C:\\Users\\Mooncat\\AppData\\Local\\Colossal Order\\Cities_Skylines\\Saves\\" + ClientData.SAVE_FILE_NAME+ "_sent.crp";
+            string pathAndFileName = "C:\\Users\\Mooncat\\AppData\\Local\\Colossal Order\\Cities_Skylines\\Saves\\" + ClientData.SAVE_FILE_NAME;
             if (!File.Exists(pathAndFileName))
             {
                 //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "File" + pathAndFileName + " does not exist!");
