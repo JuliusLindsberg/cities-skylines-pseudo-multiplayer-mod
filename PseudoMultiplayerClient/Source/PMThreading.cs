@@ -29,7 +29,7 @@ namespace PM
             {
                 //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "This clients turn has ended.");
                 PM.PMSerializationManager.multiplayerTurnEndSave = true;
-                PseudoMultiplayer.PMSerializingManager.SaveGame(ClientData.SAVE_FILE_NAME);
+                PseudoMultiplayer.PMSerializingManager.SaveGame(ClientData.SAVE_FILE_NAME + ".crp");
                 PMActive = false;
             }
 
