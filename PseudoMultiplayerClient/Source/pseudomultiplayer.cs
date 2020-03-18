@@ -143,7 +143,7 @@ namespace PM
         //send essential data to server in this funtion(the most current saveGame and maybe in future some statistics collected)
         public static void sendSaveToServer(Object source, ElapsedEventArgs eventArgs)
         {
-            string pathAndFileName = "C:\\Users\\Mooncat\\AppData\\Local\\Colossal Order\\Cities_Skylines\\Saves\\" + ClientData.SAVE_FILE_NAME;
+            string pathAndFileName = ClientData.savePath + ClientData.SAVE_FILE_NAME + ".crp";
             if (!File.Exists(pathAndFileName))
             {
                 //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "File" + pathAndFileName + " does not exist!");
@@ -166,7 +166,7 @@ namespace PM
             clientSocket.Connect(ClientData.hostIP, Message.PORT);
             var message = new PMCommunication.Message(ClientData.name, ClientData.code, PMCommunication.MessageStrings.saveToClient);
             clientSocket.Send(message.messageAsByteArray());
-            using (FileStream output = File.Create("C:\\Users\\Mooncat\\AppData\\Local\\Colossal Order\\Cities_Skylines\\Saves\\" + ClientData.SAVE_FILE_NAME + "_received.crp"))
+            using (FileStream output = File.Create(ClientData.savePath + ClientData.SAVE_FILE_NAME + "_received.crp"))
             {
                 // read the file in chunks of 1KB
                 byte[] buffer = new byte[1024];
