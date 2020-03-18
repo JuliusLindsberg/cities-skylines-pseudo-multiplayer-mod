@@ -73,9 +73,9 @@ namespace PM
             {
                 HostConfigData.fetchRemoteData(ClientData.name, ClientData.code, ClientData.hostIP);
             }
-            catch
+            catch(Exception e)
             {
-                group.AddTextfield("No Response from server!", "Either connection to host was not established or this client was not recognised", (value) => doNothing());
+                group.AddTextfield("No Response from server!", e.Message, (value) => doNothing());
                 ClientData.connectedToHost = false;
                 ClientData.saveData();
                 return;
@@ -103,34 +103,41 @@ namespace PM
         public void attemptToJoinServer(UIHelperBase group)
         {
             Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            socket.Connect(ClientData.hostIP, Message.PORT);
             byte[] message = new Message(ClientData.name, ClientData.code, MessageStrings.joinGame).messageAsByteArray();
-            socket.Send(message);
-
             byte[] buffer = new byte[1];
-            socket.Receive(buffer);
+            try
+            {
+                socket.Connect(ClientData.hostIP, Message.PORT);
+                socket.Send(message);
+                socket.Receive(buffer);
+            }
+            catch(Exception e)
+            {
+                group.AddTextfield("Join game status:", e.Message, (value) => doNothing());
+            }
             if(buffer[0] == (byte)Responses.JoinAccepted)
             {
                 //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "join accepted!");
                 ClientData.connectedToHost = true;
-                group.AddTextfield("Join game Status:", "ACCEPTED!", (value) => doNothing());
+                ClientData.saveData();
+                group.AddTextfield("Join game status:", "ACCEPTED!", (value) => doNothing());
             }
             else if(buffer[0] == (byte)Responses.AlreadyJoined)
             {
-                group.AddTextfield("Join game Status:", "ALREADY JOINED", (value) => doNothing());
+                group.AddTextfield("Join game status:", "ALREADY JOINED", (value) => doNothing());
             }
             else if(buffer[0] == (byte)Responses.NameTaken)
             {
                 ClientData.connectedToHost = false;
-                group.AddTextfield("Join game Status:", "Your username in this game is already taken", (value) => doNothing());
+                group.AddTextfield("Join game status:", "Your username in this game is already taken", (value) => doNothing());
             }
             else if(buffer[0] == (byte)Responses.JoinRefused)
             {
-                group.AddTextfield("Join game Status:", "Join refused: is the game already running?", (value) => doNothing());
+                group.AddTextfield("Join game status:", "Join refused: is the game already running?", (value) => doNothing());
             }
             else
             {
-                group.AddTextfield("Join game Status:", "Unknown error", (value) => doNothing());
+                group.AddTextfield("Join game status:", "Unknown error", (value) => doNothing());
             }
         }
         //send essential data to server in this funtion(the most current saveGame and maybe in future some statistics collected)
