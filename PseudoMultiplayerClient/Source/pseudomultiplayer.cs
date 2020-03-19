@@ -5,6 +5,8 @@ using System.IO;
 using System.Text;
 using PMCommunication;
 using System.Timers;
+using ColossalFramework.UI;
+
 
 namespace PM
 {
@@ -146,8 +148,7 @@ namespace PM
             string pathAndFileName = ClientData.savePath + ClientData.SAVE_FILE_NAME + ".crp";
             if (!File.Exists(pathAndFileName))
             {
-                //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "File" + pathAndFileName + " does not exist!");
-                return;
+                throw new FileNotFoundException("filepath " + ClientData.savePath + " was probably not valid");
             }
             //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "SendDataToServer()");
             var clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -158,7 +159,8 @@ namespace PM
             clientSocket.Close();
             //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "Save file sent now");
             TurnData.nullifyTurnData();
-            return;
+            //A most temporary solution...
+            throw new Exception("Your turn has ended!");
         }
         public static void receiveSaveFromServer()
         {
