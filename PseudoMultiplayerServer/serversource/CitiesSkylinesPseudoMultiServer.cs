@@ -59,6 +59,7 @@ namespace PMServer
                     }
                     else if (reply[0] == (byte)Responses.ReceivingSave)
                     {
+                        client.Send(reply);
                         using (FileStream output = File.Create(SAVE_FILE_NAME))
                         {
                             // read the file in chunks of 1KB
@@ -69,6 +70,7 @@ namespace PMServer
                                 output.Write(buffer, 0, bytesRead);
                             }
                         }
+                        //dump.Close();
                         Console.WriteLine("Savefile received!");
                         nextTurn();
                     }

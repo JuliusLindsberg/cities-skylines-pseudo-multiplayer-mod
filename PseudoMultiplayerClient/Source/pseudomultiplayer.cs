@@ -6,7 +6,7 @@ using System.Text;
 using PMCommunication;
 using System.Timers;
 using ColossalFramework.UI;
-
+using System.Collections;
 
 namespace PM
 {
@@ -14,6 +14,7 @@ namespace PM
     {
         //this variable here should find some other place eventually
         public static ISerializableData PMSerializingManager;
+        private UIView view = UIView.GetAView();
 
         public string Name
         {
@@ -148,20 +149,25 @@ namespace PM
             string pathAndFileName = ClientData.savePath + ClientData.SAVE_FILE_NAME + ".crp";
             if (!File.Exists(pathAndFileName))
             {
-                throw new FileNotFoundException("filepath " + ClientData.savePath + " was probably not valid");
+                DebugOutputPanel.AddMessage(ColossalFramework.Plugins.PluginManager.MessageType.Error, " Savefile did not exist!");
+                throw new FileNotFoundException("File " + pathAndFileName + " was not found!" );
             }
             //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "SendDataToServer()");
+            byte[] responseByte = new byte[1];
             var clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             clientSocket.Connect(ClientData.hostIP, Message.PORT);
-            ClientData.loadData();
             clientSocket.Send(new Message(ClientData.name, ClientData.code, MessageStrings.saveToHost).messageAsByteArray());
+            clientSocket.Receive(responseByte);
+            if(responseByte[0] != (byte)PMCommunication.Responses.ReceivingSave)
+            {
+                throw new Exception("Host was not willing to receive a savefile for unknown reason");
+            }
             clientSocket.SendFile(pathAndFileName);
             clientSocket.Close();
             //DebugOutputPanel.AddMessage(PluginManager.MessageType.Message, "Save file sent now");
             TurnData.nullifyTurnData();
-            //A most temporary solution...
-            throw new Exception("Your turn has ended!");
         }
+
         public static void receiveSaveFromServer()
         {
             var clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -182,6 +188,7 @@ namespace PM
             TurnData.tick = 0;
             TurnData.saveFetched = true;
             TurnData.saveTurnData();
+            view.AddUIComponent();
             return;
         }
         public void doNothing()
@@ -189,4 +196,5 @@ namespace PM
 
         }
     }
+
 }
