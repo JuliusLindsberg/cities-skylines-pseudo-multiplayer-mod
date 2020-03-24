@@ -188,7 +188,7 @@ namespace PM
             TurnData.tick = 0;
             TurnData.saveFetched = true;
             TurnData.saveTurnData();
-            view.AddUIComponent();
+            //view.AddUIComponent();
             return;
         }
         public void doNothing()
